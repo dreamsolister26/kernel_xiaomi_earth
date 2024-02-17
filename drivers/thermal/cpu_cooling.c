@@ -270,7 +270,7 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 
 	/* Check if the old cooling action is same as new cooling action */
 	if (cpufreq_cdev->cpufreq_state == state)
-		return 0;
+		return cpufreq_cdev->max_level;
 
 	clip_freq = get_state_freq(cpufreq_cdev, state);
 
@@ -306,6 +306,36 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 
 	return ret;
 }
+
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+void cpu_limits_set_level(unsigned int cpu, unsigned int max_freq)
+{
+	struct cpufreq_cooling_device *cpufreq_cdev;
+	struct thermal_cooling_device *cdev;
+	unsigned int cdev_cpu;
+	unsigned int level;
+
+	list_for_each_entry(cpufreq_cdev, &cpufreq_cdev_list, node) {
+		sscanf(cpufreq_cdev->cdev->type, "thermal-cpufreq-%d", &cdev_cpu);
+		if (cdev_cpu == cpu) {
+			for (level = 0; level <= cpufreq_cdev->max_level; level++) {
+				int target_freq = cpufreq_cdev->freq_table[level].frequency;
+				pr_err("%s: %d not part of any cooling device\n", __func__, target_freq);
+
+				if (max_freq >= target_freq) {
+					cdev = cpufreq_cdev->cdev;
+					if (cdev)
+						cdev->ops->set_cur_state(cdev, level);
+
+					break;
+				}
+			}
+
+			break;
+		}
+	}
+}
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 
 #ifdef CONFIG_ENERGY_MODEL
 /**
@@ -607,6 +637,32 @@ cpufreq_cooling_register(struct cpufreq_policy *policy)
 }
 EXPORT_SYMBOL_GPL(cpufreq_cooling_register);
 
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+int cpufreq_platform_cooling_register(void)
+{
+	struct cpufreq_policy *policy;
+	struct device_node *cpu_node;
+	int cpu;
+
+	for_each_cpu(cpu, cpu_online_mask) {
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy) {
+			pr_err("no policy for cpu%d\n", cpu);
+			continue;
+		}
+
+		cpu_node = of_cpu_device_node_get(cpumask_first(policy->cpus));
+		if (!cpu_node) {
+			pr_err("no cpu node\n");
+			continue;
+		}
+		__cpufreq_cooling_register(cpu_node, policy, 0, NULL);
+	}
+
+	return 0;
+}
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
+
 /**
  * of_cpufreq_cooling_register - function to create cpufreq cooling device.
  * @policy: cpufreq policy
@@ -708,3 +764,7 @@ void cpufreq_cooling_unregister(struct thermal_cooling_device *cdev)
 	kfree(cpufreq_cdev);
 }
 EXPORT_SYMBOL_GPL(cpufreq_cooling_unregister);
+
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+late_initcall(cpufreq_platform_cooling_register)
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */

@@ -670,6 +670,7 @@ static void msdc_reset_hw(struct msdc_host *host)
 	u32 val;
 
 	dev_dbg(host->mmc->parent, "%s\n",__func__);
+	u32 count = 0;
 
 	//sdr_set_bits(host->base + MSDC_CFG, MSDC_CFG_RST);
 	msdc_retry(host, MSDC_CFG, MSDC_CFG_RST,
@@ -1281,11 +1282,12 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
  * is correct before issue a request. but host design do below
  * checks recommended.
  */
+/* C3T code for HQ-252253 by xukai at 202209/29 start*/
 static inline bool msdc_cmd_is_ready(struct msdc_host *host,
 		struct mmc_request *mrq, struct mmc_command *cmd)
 {
 	/* The max busy time we can endure is 20ms */
-	unsigned long tmo = jiffies + msecs_to_jiffies(20);
+	unsigned long tmo = jiffies + msecs_to_jiffies(CMD_TIMEOUT);
 
 	if (cmd->opcode == MMC_SEND_STATUS) {
 		while ((readl(host->base + SDC_STS) & SDC_STS_CMDBUSY) &&
@@ -1312,6 +1314,7 @@ static inline bool msdc_cmd_is_ready(struct msdc_host *host,
 	}
 	return true;
 }
+/* C3T code for HQ-252253 by xukai at 202209/29 end*/
 
 static void msdc_start_command(struct msdc_host *host,
 		struct mmc_request *mrq, struct mmc_command *cmd)
@@ -2863,7 +2866,7 @@ void msdc_cqe_disable(struct mmc_host *mmc, bool recovery)
 
 	val = readl(host->base + MSDC_INT);
 	writel(val, host->base + MSDC_INT);
-
+	/* C3T code for HQ-252253 by xukai at 202209/29 end*/
 	/* disable cmdq irq */
 	sdr_clr_bits(host->base + MSDC_INTEN, MSDC_INT_CMDQ);
 	/* disable busy check */
@@ -3423,6 +3426,7 @@ static void msdc_restore_reg(struct msdc_host *host)
 	}
 }
 
+/* C3T code for HQ-252253 by xukai at 202209/29 start*/
 static int msdc_runtime_suspend(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
@@ -3444,6 +3448,7 @@ static int msdc_runtime_suspend(struct device *dev)
 #endif
 	return 0;
 }
+/* C3T code for HQ-252253 by xukai at 202209/29 end*/
 
 static int msdc_suspend(struct device *dev)
 {

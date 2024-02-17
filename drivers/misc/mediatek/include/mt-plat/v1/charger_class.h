@@ -172,6 +172,10 @@ struct charger_ops {
 
 	/* misc */
 	int (*get_ext_chgtyp)(struct charger_device *);
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+	int (*set_hiz_mode)(struct charger_device *chg_dev, bool en);
+	int (*get_hiz_mode)(struct charger_device *chg_dev);
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
 };
 
 static inline void *charger_dev_get_drvdata(
@@ -358,5 +362,10 @@ extern int charger_dev_notify(
 
 /* For sgm41516d */
 int charger_dev_get_ext_chgtyp(struct charger_device *chg_dev);
+
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+extern int charger_device_set_hiz_mode(struct charger_device *chg_dev, bool en);
+extern int charger_device_get_hiz_mode(struct charger_device *chg_dev);
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
 
 #endif /*LINUX_POWER_CHARGER_CLASS_H*/
